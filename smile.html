@@ -19,11 +19,15 @@
       position: relative;
       display: inline-block;
       margin-top: 15px;
-    }
-
-    video, canvas {
+      overflow: hidden; /* 枠外のはみ出しを防ぐ */
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    video {
+      display: block;
+      max-width: 100%;
+      height: auto;
       /* 鏡合わせ表示 */
       transform: scaleX(-1);
     }
@@ -32,6 +36,11 @@
       position: absolute;
       top: 0;
       left: 0;
+      width: 100%;
+      height: 100%;
+      /* 鏡合わせ表示 */
+      transform: scaleX(-1);
+      pointer-events: none; /* マウス・タッチイベントを透過 */
     }
 
     #smile-badge {
@@ -67,7 +76,6 @@
 
     async function init() {
       try {
-        // WASMファイルおよび学習モデル (.task) をオンラインCDNから取得
         const filesetResolver = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
         );
@@ -77,7 +85,7 @@
             modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task`,
             delegate: "GPU"
           },
-          outputFaceBlendshapes: true, // 表情認識（Blendshapes）を有効化
+          outputFaceBlendshapes: true,
           runningMode: "VIDEO",
           numFaces: 1
         });
@@ -89,7 +97,16 @@
     }
 
     function startCamera() {
-      navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+      // モバイル向けに facingMode と解像度指定を柔軟に設定
+      const constraints = {
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      };
+
+      navigator.mediaDevices.getUserMedia(constraints)
         .then((stream) => {
           video.srcObject = stream;
           video.addEventListener("loadeddata", predictWebcam);
@@ -100,8 +117,13 @@
     }
 
     async function predictWebcam() {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // 映像ソースの実サイズとCanvasのサイズを一致させる
+      if (video.videoWidth && video.videoHeight) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+      }
 
       if (lastVideoTime !== video.currentTime) {
         lastVideoTime = video.currentTime;
@@ -114,14 +136,11 @@
         if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
           const shapes = results.faceBlendshapes[0].categories;
           
-          // MediaPipe公式の Blendshapes から「笑顔」関連のパラメータを取得 (0.0 ～ 1.0)
           const smileLeft = shapes.find(s => s.categoryName === 'mouthSmileLeft')?.score || 0;
           const smileRight = shapes.find(s => s.categoryName === 'mouthSmileRight')?.score || 0;
           
-          // 左右の平均スコアを笑顔度とする
           const smileScore = (smileLeft + smileRight) / 2;
 
-          // 口元のランドマークを大きめのマーカーで描画
           if (results.faceLandmarks && results.faceLandmarks[0]) {
             const landmarks = results.faceLandmarks[0];
             ctx.fillStyle = '#00FF66';
@@ -131,14 +150,12 @@
             [61, 291, 0, 17].forEach(idx => {
               const pt = landmarks[idx];
               ctx.beginPath();
-              // マーカーのサイズを大きく設定 (半径 8px)
               ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 8, 0, 2 * Math.PI);
               ctx.fill();
               ctx.stroke();
             });
           }
 
-          // スコア判定（0.5 = 50% 以上で笑顔とみなす）
           if (smileScore > 0.5) {
             smileBadge.classList.add('active');
             smileBadge.innerText = `😄 NICE SMILE!! (${Math.round(smileScore * 100)}%)`;
@@ -161,7 +178,8 @@
 <body>
 
   <div class="container">
-    <video id="video" width="640" height="480" autoplay playsinline></video>
+    <!-- webkit-playsinline 属性を追記 -->
+    <video id="video" autoplay playsinline webkit-playsinline muted></video>
     <canvas id="output_canvas"></canvas>
   </div>
 
