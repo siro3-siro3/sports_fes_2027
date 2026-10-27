@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スタートシグナル</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-between p-6 select-none">
+
+  <!-- メイン表示エリア -->
+  <div class="flex-1 flex items-center justify-center w-full">
+    <div id="display-text" class="text-6xl sm:text-8xl md:text-9xl font-black tracking-wider text-center transition-all duration-300 transform scale-100">
+      <!-- テキストがここに大きく表示されます -->
+    </div>
+  </div>
+
+  <!-- 操作エリア -->
+  <div class="w-full max-w-xs flex gap-4 mb-8">
+    <button id="start-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-2xl py-5 rounded-2xl shadow-lg transition-all duration-150">
+      スタート
+    </button>
+    <button id="stop-btn" class="bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-400 font-bold px-6 py-5 rounded-2xl transition-all duration-150">
+      リセット
+    </button>
+  </div>
+
+  <script>
+    const audio1 = new Audio('./1.mp3');
+    const audio2 = new Audio('./2.mp3');
+    const audio3 = new Audio('./3.mp3');
+
+    const displayText = document.getElementById('display-text');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    let timer2 = null;
+    let timer3 = null;
+    let isRunning = false;
+
+    function reset() {
+      isRunning = false;
+      if (timer2) clearTimeout(timer2);
+      if (timer3) clearTimeout(timer3);
+      timer2 = null;
+      timer3 = null;
+
+      [audio1, audio2, audio3].forEach(a => {
+        a.pause();
+        a.currentTime = 0;
+      });
+
+      displayText.textContent = '';
+      displayText.className = 'text-6xl sm:text-8xl md:text-9xl font-black tracking-wider text-center transition-all duration-300 transform scale-100 text-white';
+    }
+
+    // 1.mp3 終了時処理
+    audio1.onended = () => {
+      if (!isRunning) return;
+
+      // 1秒後に「よーい」＋ 2.mp3
+      timer2 = setTimeout(() => {
+        if (!isRunning) return;
+        displayText.textContent = 'よーい';
+        displayText.className = 'text-6xl sm:text-8xl md:text-9xl font-black tracking-wider text-center transition-all duration-150 transform scale-105 text-amber-400';
+        audio2.play().catch(() => {});
+      }, 1000);
+
+      // 5〜20秒後のランダムで「どん」＋ 3.mp3
+      const randomDelayMs = Math.floor(5000 + Math.random() * 15000);
+      timer3 = setTimeout(() => {
+        if (!isRunning) return;
+        displayText.textContent = 'どん';
+        displayText.className = 'text-7xl sm:text-9xl md:text-[12rem] font-black tracking-wider text-center transition-all duration-100 transform scale-110 text-rose-500';
+        audio3.play().catch(() => {});
+      }, randomDelayMs);
+    };
+
+    startBtn.addEventListener('click', () => {
+      reset();
+      isRunning = true;
+
+      displayText.textContent = '位置について';
+      displayText.className = 'text-5xl sm:text-7xl md:text-8xl font-black tracking-wider text-center transition-all duration-150 text-indigo-300';
+      
+      audio1.play().catch(err => {
+        console.error('1.mp3 の再生に失敗しました', err);
+      });
+    });
+
+    stopBtn.addEventListener('click', () => {
+      reset();
+    });
+  </script>
+</body>
+</html>
